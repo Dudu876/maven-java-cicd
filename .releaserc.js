@@ -42,5 +42,5 @@ module.exports = {
     //   postversion: "cp -r package.json .. && cp -r npm-shrinkwrap.json .."
     // },
     tagFormat: "${version}",
-    branches: [{ name: "test" }],
+    branches: [{ name: "a" }],
 };
