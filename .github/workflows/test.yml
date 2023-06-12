@@ -1,0 +1,112 @@
+name: Tests
+on:
+  workflow_dispatch:
+  pull_request:
+
+env:
+  XPATH: //*[local-name()='project']/*[local-name()='properties']/*[local-name()='java.version']
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Get java version
+        id: java-version
+        uses: mavrosxristoforos/get-xml-info@1.1.1
+        with:
+          xml-file: pom.xml
+          xpath: ${{ env.XPATH }}
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ steps.java-version.outputs.info }}
+          distribution: 'adopt'
+          cache: 'maven'
+      - name: pre-commit
+        uses: pre-commit/action@v3.0.0
+        with:
+          extra_args: --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+        env:
+          SKIP: ${{ github.ref_name == 'master' && 'no-commit-to-branch' || '' }}
+
+  mvn-test:
+    needs: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Get java version
+        id: java-version
+        uses: mavrosxristoforos/get-xml-info@1.1.1
+        with:
+          xml-file: pom.xml
+          xpath: ${{ env.XPATH }}
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ steps.java-version.outputs.info }}
+          distribution: 'adopt'
+          cache: 'maven'
+      - name: Deploy
+        run: ./mvnw -B -U -ntp test
+      - name: Coverage Report
+        uses: aGallea/tests-coverage-report@1.3.1
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          min-coverage-percentage: '90'
+          fail-under-coverage-percentage: 'false'
+          diffcover-ref: 'jacoco'
+          jacoco-path: ./target/site/jacoco/jacoco.xml
+          junit-path: ./target/surefire-reports
+          override-comment: true
+
+  snapshot-deployment:
+    needs: mvn-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Get java version
+        id: java-version
+        uses: mavrosxristoforos/get-xml-info@1.1.1
+        with:
+          xml-file: pom.xml
+          xpath: ${{ env.XPATH }}
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ steps.java-version.outputs.info }}
+          distribution: 'adopt'
+          cache: 'maven'
+      - name: Setup maven settings.xml
+        uses: s4u/maven-settings-action@v2.8.0
+        with:
+          servers: |
+            [{
+              "id": "github",
+              "username": "${env.GITHUB_ACTOR}",
+              "password": "${env.GITHUB_TOKEN}"
+            },{
+              "id": "ghcr.io/${{ github.actor }}",
+              "username": "${env.GITHUB_ACTOR}",
+              "password": "${env.GITHUB_TOKEN}"
+            }]
+      - name: Deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          DOCKER_REGISTRY: ghcr.io/${{ github.actor }}
+        run: ./mvnw -B -U -ntp -DskipTests -Drevision=${{ github.head_ref }}-SNAPSHOT -Ddocker-image-tag=${{ github.head_ref }} deploy

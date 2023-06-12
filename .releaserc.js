@@ -19,16 +19,6 @@ module.exports = {
                 "publishCmd": "./mvnw -B -U -ntp -DskipTests -Drevision=${nextRelease.version} deploy"
             }
         ],
-        // Next steps (the docker steps) are relevant only if you want to push a docker image (and you deploy phase also builds a docker image)
-        [
-            "@semantic-release-plus/docker",
-            {
-                name: "repo-name",
-                registry: "884661243007.dkr.ecr.us-east-1.amazonaws.com",
-                publishChannelTag: true,
-                skipLogin: true,
-            },
-        ],
         [
             "@semantic-release/github",
             {
@@ -42,5 +32,5 @@ module.exports = {
     //   postversion: "cp -r package.json .. && cp -r npm-shrinkwrap.json .."
     // },
     tagFormat: "${version}",
-    branches: [{ name: "test" }],
+    branches: [{ name: "main" }],
 };
