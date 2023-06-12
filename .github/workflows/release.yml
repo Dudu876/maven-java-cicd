@@ -5,6 +5,9 @@ on:
     branches:
       - release
 
+env:
+  XPATH: //*[local-name()='project']/*[local-name()='properties']/*[local-name()='java.version']
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -16,25 +19,26 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up JDK 11
+      - name: Get java version
+        id: java-version
+        uses: mavrosxristoforos/get-xml-info@1.1.1
+        with:
+          xml-file: pom.xml
+          xpath: ${{ env.XPATH }}
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: ${{ steps.java-version.outputs.info }}
           distribution: 'adopt'
           cache: 'maven'
       - name: Setup Node.js
-        if: ${{ inputs.action == 'release' }}
         uses: actions/setup-node@v2
         with:
           node-version: lts/*
       - name: Setup semantic-release
-        shell: bash
         run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/exec @semantic-release-plus/docker @semantic-release/git @semantic-release/github -D
       - name: release
-        shell: bash
         run: npx semantic-release
         env:
-          GITHUB_TOKEN: ${{ inputs.github_token }}
-          ARTIFACTORY_USER: ${{ inputs.artifactory_user }}
-          ARTIFACTORY_TOKEN: ${{ inputs.artifactory_token }}
-
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          DOCKER_REGISTRY: ghcr.io/${{ github.actor }}
