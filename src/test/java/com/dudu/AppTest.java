@@ -1,5 +1,6 @@
 package com.dudu;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -13,6 +14,8 @@ public class AppTest {
      */
     @Test
     public void shouldAnswerWithTrue() {
-        assertTrue(true);
+        App app = new App();
+        assertTrue(app.isOdd(5));
+        assertFalse(app.isOdd(6));
     }
 }
